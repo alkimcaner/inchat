@@ -91,6 +91,11 @@ function cfError(body: any): string {
   return "Cloudflare API request failed";
 }
 
+/** RealtimeKit REST uses a `{success, data}` envelope (not `result`). */
+function payload(body: any): any {
+  return body?.data ?? body?.result;
+}
+
 function extractToken(result: any): string | null {
   for (const k of ["token", "authToken", "auth_token"]) {
     if (typeof result?.[k] === "string" && result[k]) return result[k];
@@ -245,8 +250,9 @@ async function cfCreateMeeting(env: Env, title: string): Promise<string> {
   );
   const body = await res.json<any>();
   if (!res.ok || !body?.success) throw new Error(cfError(body));
-  if (!body.result?.id) throw new Error("create meeting: missing id");
-  return body.result.id;
+  const id = payload(body)?.id;
+  if (!id) throw new Error("create meeting: missing id");
+  return id;
 }
 
 async function cfAddParticipant(
@@ -265,12 +271,13 @@ async function cfAddParticipant(
       body: JSON.stringify({
         name: name.trim() || "Guest",
         preset_name: env.CLOUDFLARE_PRESET_NAME || "group_call_participant",
+        custom_participant_id: crypto.randomUUID(),
       }),
     },
   );
   const body = await res.json<any>();
   if (!res.ok || !body?.success) throw new Error(cfError(body));
-  const token = extractToken(body.result);
+  const token = extractToken(payload(body));
   if (!token) throw new Error("add participant: no token in response");
   return token;
 }

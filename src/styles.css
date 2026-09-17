@@ -97,6 +97,26 @@ button.link { background: none; border: none; color: var(--muted); cursor: point
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px;
 }
+.meeting-bar-actions { display: flex; gap: 8px; }
+
+/* Meeting + saved-history side by side */
+.meeting-with-history { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 900px) {
+  .meeting-with-history { grid-template-columns: 1fr 320px; }
+  .meeting-with-history .meeting-slot { height: 100%; min-height: 480px; }
+}
+.small-note { font-size: 12px; margin: 0; }
+
+/* Saved-history panel (D1) */
+.chat {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px; display: flex; flex-direction: column; gap: 10px; min-height: 300px; max-height: 720px;
+}
+.chat h3 { margin: 0; font-size: 15px; }
+.chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 180px; }
+.chat-msg { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.chat-who { display: block; font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+.chat-text { word-break: break-word; }
 .meeting-bar-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .meeting-bar-title strong { font-size: 15px; }
 .meeting-slot {

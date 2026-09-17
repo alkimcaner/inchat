@@ -1,8 +1,8 @@
 # InChat — anonymous voice rooms
 
 Desktop voice-chat app built with **Tauri + React**, with **everything
-server-side on Cloudflare**: media via **RealtimeKit** (UI Kit), API + storage
-via a **Worker + KV**. Managed with **Bun**.
+server-side on Cloudflare**: media via **RealtimeKit** (UI Kit), API + all
+storage via a **Worker + D1**. Managed with **Bun**.
 
 No user accounts: everyone joins anonymously with just a display name.
 The Cloudflare API token lives only as a Worker secret — clients receive
@@ -18,10 +18,12 @@ Cloudflare Worker (`worker/`) ── secrets: account ID, API token, app ID
    ├─ POST /api/rooms            create meeting + mint participant token
    ├─ GET  /api/rooms            public room directory
    ├─ POST /api/rooms/:id/join   mint participant token
+   ├─ GET/POST /api/rooms/:id/messages   chat history (persisted)
    └─ POST /api/webhooks/...     signed RealtimeKit events (live counts)
         │                    ▲
         ▼                    │ webhooks (verified RSA-SHA256)
-Cloudflare KV (`ROOMS`)      Cloudflare RealtimeKit (voice media)
+Cloudflare D1 (`inchat`)     Cloudflare RealtimeKit (voice media)
+ rooms · messages · processed_webhooks · meta
 ```
 
 ## Prerequisites
@@ -39,9 +41,11 @@ Cloudflare KV (`ROOMS`)      Cloudflare RealtimeKit (voice media)
 ```sh
 bun install
 
-# 1. Worker storage
-bunx wrangler kv namespace create ROOMS
-#    paste the id into worker/wrangler.toml
+# 1. D1 database (rooms, messages, webhook dedupe, key cache)
+bunx wrangler d1 create inchat
+#    paste the database_id into worker/wrangler.toml
+bunx wrangler d1 migrations apply inchat --local
+bunx wrangler d1 migrations apply inchat --remote
 
 # 2. Worker secrets (local dev file + production secrets)
 cp worker/.dev.vars.example worker/.dev.vars   # fill in account/token/app
@@ -83,14 +87,18 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
 ## How it works
 
 - **Lobby** (`src/components/Lobby.tsx`) — display name, public room
-  directory from KV (live counts via webhooks), join-by-code, create room,
+  directory from D1 (live counts via webhooks), join-by-code, create room,
   and an advanced "paste participant token" path that skips the backend.
 - **Room** (`src/components/MeetingView.tsx`) — prebuilt `<RtkMeeting>`
   (`fill` mode, setup screen), initialized with
   `defaults: { audio: true, video: false }`. Leaving returns to the lobby.
-- **Worker** (`worker/src/index.ts`, zero dependencies) — creates meetings,
-  mints participant tokens, serves the directory from KV, and applies
-  signature-verified webhook events (deduplicated via `rtk-uuid`).
+  A **History** toggle shows saved chat from D1 (`src/components/History.tsx`);
+  `HistorySync` mirrors live UI Kit chat into D1 idempotently.
+- **Worker** (`worker/src/index.ts`, zero dependencies, schema in
+  `worker/migrations/`) — creates meetings, mints participant tokens, serves
+  the directory and message history from D1, and applies signature-verified
+  webhook events (deduplicated). A daily cron prunes messages past
+  `MESSAGE_RETENTION_DAYS` (default 30) and old webhook UUIDs.
 
 ## Project layout
 

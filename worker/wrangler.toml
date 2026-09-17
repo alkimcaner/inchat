@@ -8,10 +8,20 @@ compatibility_date = "2026-09-01"
 # type "Voice" (e.g. a `voice_participant` preset created in the dashboard).
 CLOUDFLARE_PRESET_NAME = "group_call_participant"
 REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL = "https://api.realtime.cloudflare.com/.well-known/webhooks.json"
+# Chat history retention, in days. Pruned by the scheduled cron below.
+MESSAGE_RETENTION_DAYS = "30"
 
-# KV namespace holding the public room directory + webhook caches.
+# D1 database holding rooms, messages, webhook dedupe + key cache.
 # Create it, then paste the id:
-#   bunx wrangler kv namespace create ROOMS
-[[kv_namespaces]]
-binding = "ROOMS"
-id = "PASTE_KV_NAMESPACE_ID"
+#   bunx wrangler d1 create inchat
+#   bunx wrangler d1 migrations apply inchat --local
+#   bunx wrangler d1 migrations apply inchat --remote
+[[d1_databases]]
+binding = "DB"
+database_name = "inchat"
+database_id = "PASTE_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Daily pruning: old messages + processed webhook UUIDs.
+[triggers]
+crons = ["0 3 * * *"]

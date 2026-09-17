@@ -62,12 +62,49 @@ export async function joinRoom(
   return (await res.json()) as RoomTicket;
 }
 
-/** Public room directory, stored in Cloudflare KV by the Worker. */
+/** Public room directory, stored in Cloudflare D1 by the Worker. */
 export async function listRooms(): Promise<RoomInfo[]> {
   const res = await fetch(`${apiBase()}/api/rooms`);
   if (!res.ok) throw new Error(await parseError(res));
   const data = (await res.json()) as { rooms: RoomInfo[] };
   return data.rooms ?? [];
+}
+
+export interface RoomMessage {
+  id: string;
+  sender: string;
+  body: string;
+  sent_at: string;
+}
+
+/** Chat history for a room, persisted in D1. */
+export async function getMessages(
+  roomId: string,
+  limit = 100,
+): Promise<RoomMessage[]> {
+  const res = await fetch(
+    `${apiBase()}/api/rooms/${encodeURIComponent(roomId)}/messages?limit=${limit}`,
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { messages: RoomMessage[] };
+  return data.messages ?? [];
+}
+
+/** Persist chat messages to D1. Insert is idempotent per message id. */
+export async function saveMessages(
+  roomId: string,
+  messages: RoomMessage[],
+): Promise<void> {
+  if (messages.length === 0) return;
+  const res = await fetch(
+    `${apiBase()}/api/rooms/${encodeURIComponent(roomId)}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+    },
+  );
+  if (!res.ok) throw new Error(await parseError(res));
 }
 
 export function isTauri(): boolean {

@@ -14,14 +14,12 @@
  *   POST /api/rooms/:id/messages         persist chat messages (D1)
  *   POST /api/webhooks/realtimekit       signed RealtimeKit events
  *
- * Cron (daily): prunes messages past MESSAGE_RETENTION_DAYS and old
- * processed-webhook UUIDs.
- *
  * Secrets (wrangler secret put ...):
  *   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CLOUDFLARE_APP_ID
  * Vars (wrangler.toml):
+ *   CLOUDFLARE_PRESET_NAME, REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL
+ * Vars (wrangler.toml):
  *   CLOUDFLARE_PRESET_NAME, REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL,
- *   MESSAGE_RETENTION_DAYS
  * Bindings:
  *   D1 database `DB`
  */
@@ -29,7 +27,6 @@
 const API_BASE = "https://api.cloudflare.com/client/v4/accounts";
 const PUBKEY_META_KEY = "rtk-pubkey";
 const PUBKEY_MAX_AGE_MS = 24 * 3600 * 1000;
-const SEEN_TTL_MS = 7 * 24 * 3600 * 1000;
 const MAX_MESSAGE_BODY = 2000;
 const MAX_BATCH = 50;
 const MAX_HISTORY = 200;
@@ -41,7 +38,6 @@ interface Env {
   CLOUDFLARE_APP_ID: string;
   CLOUDFLARE_PRESET_NAME?: string;
   REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL?: string;
-  MESSAGE_RETENTION_DAYS?: string;
 }
 
 interface RoomRecord {
@@ -396,22 +392,6 @@ async function handleWebhook(req: Request, env: Env): Promise<Response> {
   return new Response(null, { status: 200 });
 }
 
-// --- Cron: retention pruning --------------------------------------------------
-
-async function prune(env: Env): Promise<void> {
-  const retentionDays = Number(env.MESSAGE_RETENTION_DAYS) || 30;
-  const msgCutoff = new Date(
-    Date.now() - retentionDays * 24 * 3600 * 1000,
-  ).toISOString();
-  const seenCutoff = new Date(Date.now() - SEEN_TTL_MS).toISOString();
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM messages WHERE sent_at < ?").bind(msgCutoff),
-    env.DB.prepare(
-      "DELETE FROM processed_webhooks WHERE processed_at < ?",
-    ).bind(seenCutoff),
-  ]);
-}
-
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -447,13 +427,5 @@ export default {
         500,
       );
     }
-  },
-
-  async scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<void> {
-    ctx.waitUntil(prune(env));
   },
 } satisfies ExportedHandler<Env>;

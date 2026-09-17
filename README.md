@@ -97,8 +97,7 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
 - **Worker** (`worker/src/index.ts`, zero dependencies, schema in
   `worker/migrations/`) — creates meetings, mints participant tokens, serves
   the directory and message history from D1, and applies signature-verified
-  webhook events (deduplicated). A daily cron prunes messages past
-  `MESSAGE_RETENTION_DAYS` (default 30) and old webhook UUIDs.
+  webhook events (deduplicated). Messages are kept indefinitely.
 
 ## Project layout
 

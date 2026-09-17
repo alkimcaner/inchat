@@ -113,9 +113,6 @@ export function HistoryPanel({ roomId }: { roomId: string }) {
           ))
         )}
       </div>
-      <p className="muted small-note">
-        History is pruned automatically after the retention period.
-      </p>
     </aside>
   );
 }

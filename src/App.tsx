@@ -48,14 +48,13 @@ export default function App() {
     [initMeeting],
   );
 
-  const handleLeave = useCallback(async () => {
-    try {
-      await meeting?.leave();
-    } catch {
-      // ignore — we're leaving anyway
-    }
+  // Just drops the session. Leaving itself happens exactly once in
+  // MeetingView (our button) or inside the UI Kit (its own leave/kick
+  // controls, surfaced via roomLeft) — never here, or leave() re-emits
+  // roomLeft and the cycle repeats forever.
+  const handleLeave = useCallback(() => {
     setSession(null);
-  }, [meeting]);
+  }, []);
 
   return (
     <div className="app">

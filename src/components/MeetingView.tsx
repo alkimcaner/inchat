@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RtkMeeting } from "@cloudflare/realtimekit-react-ui";
 import { useRealtimeKitMeeting } from "@cloudflare/realtimekit-react";
 import type { Session } from "../App";
@@ -20,8 +20,14 @@ export default function MeetingView({ session, onLeave }: Props) {
   const [copied, setCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const roomId = session.ticket.meeting_id;
+  // leave() unconditionally emits roomLeft on completion — even when
+  // already left. So leaving must be single-flight and must never block
+  // the UI transition: otherwise roomLeft -> leave -> roomLeft ... loops
+  // forever and the renderer spins.
+  const leavingRef = useRef(false);
 
   // Return to the lobby if the local user leaves / is kicked via the UI Kit.
+  // Never calls leave() itself — leaving already happened at that point.
   useEffect(() => {
     const handler = () => onLeave();
     meeting.self.on("roomLeft", handler);
@@ -30,12 +36,16 @@ export default function MeetingView({ session, onLeave }: Props) {
     };
   }, [meeting, onLeave]);
 
-  async function leave() {
-    try {
-      await meeting.leave();
-    } finally {
-      onLeave();
-    }
+  function leave() {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    // Fire and forget: media teardown involves awaits that can stall, and
+    // the roomLeft handler already returns us to the lobby. The UI must
+    // never wait on leave(), and leave() must never run twice.
+    meeting.leave().catch(() => {
+      // leaving anyway
+    });
+    onLeave();
   }
 
   async function copyCode() {

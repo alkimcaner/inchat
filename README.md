@@ -42,10 +42,10 @@ Cloudflare D1 (`inchat`)     Cloudflare RealtimeKit (voice media)
 bun install
 
 # 1. D1 database (rooms, messages, webhook dedupe, key cache)
-bunx wrangler d1 create inchat
+bun run worker:d1:create
 #    paste the database_id into worker/wrangler.toml
-bunx wrangler d1 migrations apply inchat --local
-bunx wrangler d1 migrations apply inchat --remote
+bun run worker:migrate:local
+bun run worker:migrate
 
 # 2. Worker secrets (local dev file + production secrets)
 cp worker/.dev.vars.example worker/.dev.vars   # fill in account/token/app

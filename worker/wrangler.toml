@@ -6,16 +6,16 @@ compatibility_date = "2026-09-01"
 [vars]
 # Preset guests join with. Must exist in your RealtimeKit app with meeting
 # type "Voice" (e.g. a `voice_participant` preset created in the dashboard).
-CLOUDFLARE_PRESET_NAME = "group_call_participant"
+CLOUDFLARE_PRESET_NAME = "voice_participant"
 REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL = "https://api.realtime.cloudflare.com/.well-known/webhooks.json"
 
 # D1 database holding rooms, messages, webhook dedupe + key cache.
 # Create it, then paste the id:
-#   bunx wrangler d1 create inchat
-#   bunx wrangler d1 migrations apply inchat --local
-#   bunx wrangler d1 migrations apply inchat --remote
+#   bun run worker:d1:create
+#   bun run worker:migrate:local
+#   bun run worker:migrate
 [[d1_databases]]
 binding = "DB"
 database_name = "inchat"
-database_id = "PASTE_D1_DATABASE_ID"
+database_id = "1ec23e16-8b43-4309-8779-30f92e978906"
 migrations_dir = "migrations"

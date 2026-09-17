@@ -113,15 +113,16 @@ export async function saveMessages(
   if (!res.ok) throw new Error(await parseError(res));
 }
 
-export function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export function isElectron(): boolean {
+  return (
+    typeof window !== "undefined" && window.electronAPI?.isElectron === true
+  );
 }
 
 /**
- * Voice requires WebRTC. Some WebViews (notably Linux WebKitGTK without a
- * WebRTC build) expose a microphone but no RTCPeerConnection — the
- * RealtimeKit SDK then fails with `[ERR0010] Browser not supported`.
- * Detect that up front so we can explain it instead.
+ * Voice requires WebRTC. Browsers and Electron (Chromium) provide it;
+ * some embedded WebViews don't — the RealtimeKit SDK then fails with
+ * `[ERR0010] Browser not supported`. Detect that up front to explain it.
  */
 export function voiceSupport(): { ok: boolean; reason: string } {
   if (typeof RTCPeerConnection === "undefined") {
@@ -149,12 +150,8 @@ export function voiceSupport(): { ok: boolean; reason: string } {
 
 export async function copyText(text: string): Promise<boolean> {
   try {
-    if (isTauri()) {
-      const { writeText } = await import(
-        "@tauri-apps/plugin-clipboard-manager"
-      );
-      await writeText(text);
-      return true;
+    if (isElectron()) {
+      return await window.electronAPI!.copyText(text);
     }
     await navigator.clipboard.writeText(text);
     return true;

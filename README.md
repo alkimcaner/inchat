@@ -1,6 +1,6 @@
 # InChat — anonymous voice rooms
 
-Desktop voice-chat app built with **Tauri + React**, with **everything
+Desktop voice-chat app built with **Electron + React**, with **everything
 server-side on Cloudflare**: media via **RealtimeKit** (UI Kit), API + all
 storage via a **Worker + D1**. Managed with **Bun**.
 
@@ -11,7 +11,7 @@ nothing but their own per-guest participant `authToken`.
 ## Architecture
 
 ```
-Desktop / browser client (Tauri + React + RtkMeeting UI Kit)
+Desktop / browser client (Electron + React + RtkMeeting UI Kit)
         │  HTTPS (/api/*)
         ▼
 Cloudflare Worker (`worker/`) ── secrets: account ID, API token, app ID
@@ -28,8 +28,8 @@ Cloudflare D1 (`inchat`)     Cloudflare RealtimeKit (voice media)
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) >= 1.1, Rust stable + Tauri webview libs for desktop
-  builds ([prerequisites](https://tauri.app/start/prerequisites/))
+- [Bun](https://bun.sh) >= 1.1 (the Electron desktop shell bundles Chromium,
+  so voice works there unlike Linux WebKitGTK WebViews)
 - A Cloudflare account with:
   1. A **RealtimeKit app** (dash → Realtime → Kit → Create App).
   2. An API token with **Realtime / Realtime Admin** permission.
@@ -86,8 +86,8 @@ curl --request POST \
 ```sh
 cd worker && bunx wrangler dev --port 8787   # :8787, Worker API (shell 1)
 bun run dev          # :1420 — web client, /api proxied to the Worker (shell 2)
-bun run tauri:dev    # desktop shell against the same Worker API
-bun run tauri:build  # desktop bundle (set VITE_API_URL in .env first)
+bun run dev:electron  # desktop shell against the same Worker API
+bun run dist        # desktop AppImage (set VITE_API_URL in .env first)
 ```
 
 Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
@@ -119,5 +119,5 @@ src/                  React frontend (Vite)
   components/         Lobby, MeetingView (UI Kit wrapper)
   lib/provision.ts    Worker API client (VITE_API_URL or /api proxy)
 worker/               Cloudflare Worker API + KV directory + webhooks
-src-tauri/            Tauri desktop shell (no backend logic — that's the Worker)
+electron/             Electron main + preload (Chromium shell; no backend logic — that's the Worker)
 ```

@@ -3,33 +3,45 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Voice chat desktop app — Tauri + React + Cloudflare RealtimeKit",
+  "description": "Voice chat desktop app — Electron + React + Cloudflare RealtimeKit",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "bun run build:electron && concurrently -k -n web,app \"vite\" \"wait-on tcp:127.0.0.1:1420 && electron .\"",
     "build": "tsc --noEmit && vite build",
+    "build:electron": "bun build electron/main.ts electron/preload.ts --outdir dist-electron --target node --format cjs --external electron && mv dist-electron/main.js dist-electron/main.cjs && mv dist-electron/preload.js dist-electron/preload.cjs",
+    "dist": "bun run build && bun run build:electron && electron-builder --linux AppImage",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
     "check": "tsc --noEmit && tsc --noEmit -p worker"
+  },
+  "build": {
+    "appId": "com.inchat.voice",
+    "productName": "InChat",
+    "files": ["dist/**", "dist-electron/**", "package.json"],
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Chat"
+    }
   },
   "dependencies": {
     "@cloudflare/realtimekit-react": "^2.0.2",
     "@cloudflare/realtimekit-react-ui": "^2.0.2",
     "@marsidev/react-turnstile": "^1.6.1",
-    "@tauri-apps/api": "^2.4.0",
-    "@tauri-apps/plugin-clipboard-manager": "^2.2.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260917.1",
-    "@tauri-apps/cli": "^2.11.4",
+    "@types/node": "^26.6.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
+    "wait-on": "^9.1.0",
     "wrangler": "^4.134.0"
   }
 }

@@ -1,9 +1,7 @@
 node_modules/
 dist/
+dist-electron/
 .wrangler/
-src-tauri/target/
-src-tauri/gen/
-src-tauri/WixTools/
 .env
 worker/.dev.vars
 *.log

@@ -40,27 +40,29 @@ Cloudflare D1 (`inchat`)     Cloudflare RealtimeKit (voice media)
 
 ```sh
 bun install
+cd worker   # all wrangler commands run from here
 
 # 1. D1 database (rooms, messages, webhook dedupe, key cache)
-bun run worker:d1:create
-#    paste the database_id into worker/wrangler.toml
-bun run worker:migrate:local
-bun run worker:migrate
+bunx wrangler d1 create inchat
+#    paste the database_id into wrangler.toml
+bunx wrangler d1 migrations apply inchat --local
+bunx wrangler d1 migrations apply inchat --remote
 
 # 2. Worker secrets (local dev file + production secrets)
-cp worker/.dev.vars.example worker/.dev.vars   # fill in account/token/app
-bun run worker:secret -- CLOUDFLARE_ACCOUNT_ID
-bun run worker:secret -- CLOUDFLARE_API_TOKEN
-bun run worker:secret -- CLOUDFLARE_APP_ID
+cp .dev.vars.example .dev.vars   # fill in account/token/app
+bunx wrangler secret put CLOUDFLARE_ACCOUNT_ID
+bunx wrangler secret put CLOUDFLARE_API_TOKEN
+bunx wrangler secret put CLOUDFLARE_APP_ID
 
 # 3. Optional: Turnstile human check on room creation (dash → Turnstile →
 #    Add widget, allow your worker/client hostnames). Then:
-bun run worker:secret -- TURNSTILE_SECRET_KEY
-#    and set VITE_TURNSTILE_SITE_KEY in .env (step 5). Until the secret is
-#    set, creation works without the check (local dev).
+bunx wrangler secret put TURNSTILE_SECRET_KEY
+#    and set VITE_TURNSTILE_SITE_KEY in the root .env (step 5). Until the
+#    secret is set, creation works without the check (local dev).
 
 # 3. Deploy
-bun run worker:deploy   # note the https://inchat-api.<you>.workers.dev URL
+bunx wrangler deploy   # note the https://inchat-api.<you>.workers.dev URL
+cd ..
 
 # 4. Point the client at it
 cp .env.example .env    # VITE_API_URL=https://inchat-api.<you>.workers.dev
@@ -82,7 +84,7 @@ curl --request POST \
 ## Run
 
 ```sh
-bun run worker:dev   # :8787 — Worker API with local .dev.vars (shell 1)
+cd worker && bunx wrangler dev --port 8787   # :8787, Worker API (shell 1)
 bun run dev          # :1420 — web client, /api proxied to the Worker (shell 2)
 bun run tauri:dev    # desktop shell against the same Worker API
 bun run tauri:build  # desktop bundle (set VITE_API_URL in .env first)

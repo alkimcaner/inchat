@@ -11,9 +11,9 @@ REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL = "https://api.realtime.cloudflare.com/.well-
 
 # D1 database holding rooms, messages, webhook dedupe + key cache.
 # Create it, then paste the id:
-#   bun run worker:d1:create
-#   bun run worker:migrate:local
-#   bun run worker:migrate
+#   bunx wrangler d1 create inchat
+#   bunx wrangler d1 migrations apply inchat --local
+#   bunx wrangler d1 migrations apply inchat --remote
 [[d1_databases]]
 binding = "DB"
 database_name = "inchat"

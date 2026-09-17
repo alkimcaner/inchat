@@ -1,5 +1,5 @@
 # Local secrets for `wrangler dev`. Copy to worker/.dev.vars (git-ignored).
-# For production, use: bunx wrangler secret put <NAME>
+# For production, use: bun run worker:secret -- <NAME>
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_API_TOKEN=
 CLOUDFLARE_APP_ID=

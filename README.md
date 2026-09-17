@@ -55,7 +55,7 @@ bun run worker:secret -- CLOUDFLARE_APP_ID
 
 # 3. Optional: Turnstile human check on room creation (dash → Turnstile →
 #    Add widget, allow your worker/client hostnames). Then:
-bunx wrangler secret put TURNSTILE_SECRET_KEY
+bun run worker:secret -- TURNSTILE_SECRET_KEY
 #    and set VITE_TURNSTILE_SITE_KEY in .env (step 5). Until the secret is
 #    set, creation works without the check (local dev).
 

@@ -49,9 +49,9 @@ bun run worker:migrate
 
 # 2. Worker secrets (local dev file + production secrets)
 cp worker/.dev.vars.example worker/.dev.vars   # fill in account/token/app
-bunx wrangler secret put CLOUDFLARE_ACCOUNT_ID
-bunx wrangler secret put CLOUDFLARE_API_TOKEN
-bunx wrangler secret put CLOUDFLARE_APP_ID
+bun run worker:secret -- CLOUDFLARE_ACCOUNT_ID
+bun run worker:secret -- CLOUDFLARE_API_TOKEN
+bun run worker:secret -- CLOUDFLARE_APP_ID
 
 # 3. Optional: Turnstile human check on room creation (dash → Turnstile →
 #    Add widget, allow your worker/client hostnames). Then:

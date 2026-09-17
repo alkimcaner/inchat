@@ -13,6 +13,7 @@
     "worker:migrate": "wrangler d1 migrations apply inchat --remote --config worker/wrangler.toml",
     "worker:migrate:local": "wrangler d1 migrations apply inchat --local --config worker/wrangler.toml",
     "worker:d1:create": "wrangler d1 create inchat",
+    "worker:secret": "wrangler secret put --config worker/wrangler.toml",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",

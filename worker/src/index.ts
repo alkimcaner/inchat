@@ -6,9 +6,15 @@
  * RealtimeKit webhooks, and persisted chat history. Everyone joins
  * anonymously — just a display name.
  *
+ * Abuse protection (all anonymous, no logins):
+ *   1. Per-IP rate limits on every endpoint (D1 fixed windows).
+ *   2. Turnstile human check on room creation (when TURNSTILE_SECRET_KEY set).
+ *   3. Unlisted rooms: rooms are private by default; only rooms created
+ *      with isPublic:true appear in the directory. Join-by-code always works.
+ *
  * Routes:
  *   POST /api/rooms                      create room + join as `name`
- *   GET  /api/rooms                      list rooms
+ *   GET  /api/rooms                      list public rooms
  *   POST /api/rooms/:id/join             join room as `name`
  *   GET  /api/rooms/:id/messages         room chat history (D1)
  *   POST /api/rooms/:id/messages         persist chat messages (D1)
@@ -16,8 +22,7 @@
  *
  * Secrets (wrangler secret put ...):
  *   CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, CLOUDFLARE_APP_ID
- * Vars (wrangler.toml):
- *   CLOUDFLARE_PRESET_NAME, REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL
+ *   TURNSTILE_SECRET_KEY (optional — enables the creation human check)
  * Vars (wrangler.toml):
  *   CLOUDFLARE_PRESET_NAME, REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL,
  * Bindings:
@@ -31,6 +36,14 @@ const MAX_MESSAGE_BODY = 2000;
 const MAX_BATCH = 50;
 const MAX_HISTORY = 200;
 
+// Rate limits: [max requests, window seconds] per IP.
+const LIMITS = {
+  create: [5, 3600], // room creation is the billing attack surface
+  join: [30, 600],
+  write: [60, 60], // persisting chat messages
+  read: [180, 60], // directory + history reads
+} as const;
+
 interface Env {
   DB: D1Database;
   CLOUDFLARE_ACCOUNT_ID: string;
@@ -38,6 +51,7 @@ interface Env {
   CLOUDFLARE_APP_ID: string;
   CLOUDFLARE_PRESET_NAME?: string;
   REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL?: string;
+  TURNSTILE_SECRET_KEY?: string;
 }
 
 interface RoomRecord {
@@ -46,6 +60,7 @@ interface RoomRecord {
   createdAt: string;
   live: boolean;
   people: number;
+  isPublic: boolean;
 }
 
 interface StoredMessage {
@@ -61,10 +76,14 @@ const cors = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const json = (data: unknown, status = 200) =>
-  Response.json(data, { status, headers: cors });
+const json = (data: unknown, status = 200, extra?: HeadersInit) =>
+  Response.json(data, { status, headers: { ...cors, ...extra } });
 
 const nowIso = () => new Date().toISOString();
+
+function clientIp(req: Request): string {
+  return req.headers.get("CF-Connecting-IP")?.trim() || "unknown";
+}
 
 function cfError(body: any): string {
   const errs = body?.errors;
@@ -79,6 +98,75 @@ function extractToken(result: any): string | null {
   return null;
 }
 
+// --- Rate limiting (D1 fixed windows, per IP) --------------------------------
+
+async function rateLimitHit(
+  env: Env,
+  scope: keyof typeof LIMITS,
+  ip: string,
+): Promise<{ limited: boolean; retryAfter: number }> {
+  const [limit, windowSec] = LIMITS[scope];
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = now - (now % windowSec);
+  const key = `${scope}:${ip}:${windowStart}`;
+  // Opportunistic cleanup of expired windows.
+  await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
+    .bind(windowStart - windowSec)
+    .run();
+  const row = await env.DB.prepare(
+    `INSERT INTO rate_limits (key, count, window_start) VALUES (?, 1, ?)
+     ON CONFLICT(key) DO UPDATE SET count = count + 1
+     RETURNING count`,
+  )
+    .bind(key, windowStart)
+    .first<{ count: number }>();
+  const count = row?.count ?? 1;
+  return {
+    limited: count > limit,
+    retryAfter: Math.max(1, windowStart + windowSec - now),
+  };
+}
+
+async function withLimit(
+  env: Env,
+  req: Request,
+  scope: keyof typeof LIMITS,
+  fn: () => Promise<Response>,
+): Promise<Response> {
+  const { limited, retryAfter } = await rateLimitHit(
+    env,
+    scope,
+    clientIp(req),
+  );
+  if (limited) {
+    return json(
+      { error: "Rate limit exceeded, try again shortly." },
+      429,
+      { "Retry-After": String(retryAfter) },
+    );
+  }
+  return fn();
+}
+
+// --- Turnstile (human check on room creation) ---------------------------------
+
+async function verifyTurnstile(
+  secret: string,
+  token: string,
+  ip: string,
+): Promise<boolean> {
+  const res = await fetch(
+    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ secret, response: token, remoteip: ip }),
+    },
+  );
+  const data = await res.json<any>().catch(() => null);
+  return data?.success === true;
+}
+
 // --- Rooms ------------------------------------------------------------------
 
 function rowToRoom(row: any): RoomRecord {
@@ -88,6 +176,7 @@ function rowToRoom(row: any): RoomRecord {
     createdAt: row.created_at,
     live: row.live === 1,
     people: row.people,
+    isPublic: (row.is_public ?? 1) === 1,
   };
 }
 
@@ -100,8 +189,8 @@ async function getRoom(env: Env, id: string): Promise<RoomRecord | null> {
 
 async function upsertRoom(env: Env, room: RoomRecord): Promise<void> {
   await env.DB.prepare(
-    `INSERT INTO rooms (id, title, created_at, live, people, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO rooms (id, title, created_at, live, people, is_public, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        title = excluded.title,
        live = excluded.live,
@@ -114,6 +203,7 @@ async function upsertRoom(env: Env, room: RoomRecord): Promise<void> {
       room.createdAt,
       room.live ? 1 : 0,
       room.people,
+      room.isPublic ? 1 : 0,
       nowIso(),
     )
     .run();
@@ -123,6 +213,7 @@ async function ensureRoom(
   env: Env,
   id: string,
   title = "Voice room",
+  isPublic = false,
 ): Promise<RoomRecord> {
   const existing = await getRoom(env, id);
   if (existing) return existing;
@@ -132,6 +223,7 @@ async function ensureRoom(
     createdAt: nowIso(),
     live: false,
     people: 0,
+    isPublic,
   };
   await upsertRoom(env, room);
   return room;
@@ -184,7 +276,25 @@ async function cfAddParticipant(
 }
 
 async function handleCreateRoom(req: Request, env: Env): Promise<Response> {
-  const { title = "", name = "Guest" } = await req.json<any>();
+  const {
+    title = "",
+    name = "Guest",
+    isPublic = false,
+    turnstileToken = "",
+  } = await req.json<any>();
+
+  if (env.TURNSTILE_SECRET_KEY) {
+    if (!turnstileToken) {
+      return json({ error: "Human verification required." }, 403);
+    }
+    const ok = await verifyTurnstile(
+      env.TURNSTILE_SECRET_KEY,
+      turnstileToken,
+      clientIp(req),
+    );
+    if (!ok) return json({ error: "Human verification failed." }, 403);
+  }
+
   const meetingId = await cfCreateMeeting(env, title);
   const authToken = await cfAddParticipant(env, meetingId, name);
   await upsertRoom(env, {
@@ -193,15 +303,22 @@ async function handleCreateRoom(req: Request, env: Env): Promise<Response> {
     createdAt: nowIso(),
     live: false,
     people: 0,
+    isPublic: isPublic === true,
   });
   return json({ meeting_id: meetingId, auth_token: authToken });
 }
 
 async function handleListRooms(env: Env): Promise<Response> {
   const { results } = await env.DB.prepare(
-    "SELECT * FROM rooms ORDER BY live DESC, created_at DESC LIMIT 200",
+    `SELECT * FROM rooms WHERE is_public = 1
+     ORDER BY live DESC, created_at DESC LIMIT 200`,
   ).all();
-  return json({ rooms: (results ?? []).map(rowToRoom) });
+  return json({
+    rooms: (results ?? []).map((r: any) => {
+      const { isPublic: _omit, ...publicFields } = rowToRoom(r);
+      return publicFields;
+    }),
+  });
 }
 
 async function handleJoinRoom(
@@ -211,7 +328,8 @@ async function handleJoinRoom(
 ): Promise<Response> {
   const { name = "Guest" } = await req.json<any>();
   const authToken = await cfAddParticipant(env, meetingId, name);
-  // Track rooms created outside this directory (e.g. dashboard) too.
+  // Track rooms created outside this directory (e.g. dashboard) too —
+  // unlisted unless later published.
   await ensureRoom(env, meetingId);
   return json({ meeting_id: meetingId, auth_token: authToken });
 }
@@ -398,21 +516,33 @@ export default {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
     try {
       if (req.method === "POST" && url.pathname === "/api/rooms") {
-        return await handleCreateRoom(req, env);
+        return await withLimit(env, req, "create", () =>
+          handleCreateRoom(req, env),
+        );
       }
       if (req.method === "GET" && url.pathname === "/api/rooms") {
-        return await handleListRooms(env);
+        return await withLimit(env, req, "read", () => handleListRooms(env));
       }
       const joinMatch = url.pathname.match(/^\/api\/rooms\/([^/]+)\/join$/);
       if (req.method === "POST" && joinMatch) {
-        return await handleJoinRoom(req, env, decodeURIComponent(joinMatch[1]!));
+        const roomId = decodeURIComponent(joinMatch[1]!);
+        return await withLimit(env, req, "join", () =>
+          handleJoinRoom(req, env, roomId),
+        );
       }
       const msgMatch = url.pathname.match(/^\/api\/rooms\/([^/]+)\/messages$/);
       if (msgMatch) {
         const roomId = decodeURIComponent(msgMatch[1]!);
-        if (req.method === "GET") return await handleListMessages(req, env, roomId);
-        if (req.method === "POST")
-          return await handleSaveMessages(req, env, roomId);
+        if (req.method === "GET") {
+          return await withLimit(env, req, "read", () =>
+            handleListMessages(req, env, roomId),
+          );
+        }
+        if (req.method === "POST") {
+          return await withLimit(env, req, "write", () =>
+            handleSaveMessages(req, env, roomId),
+          );
+        }
       }
       if (
         req.method === "POST" &&

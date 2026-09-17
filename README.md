@@ -53,6 +53,12 @@ bunx wrangler secret put CLOUDFLARE_ACCOUNT_ID
 bunx wrangler secret put CLOUDFLARE_API_TOKEN
 bunx wrangler secret put CLOUDFLARE_APP_ID
 
+# 3. Optional: Turnstile human check on room creation (dash → Turnstile →
+#    Add widget, allow your worker/client hostnames). Then:
+bunx wrangler secret put TURNSTILE_SECRET_KEY
+#    and set VITE_TURNSTILE_SITE_KEY in .env (step 5). Until the secret is
+#    set, creation works without the check (local dev).
+
 # 3. Deploy
 bun run worker:deploy   # note the https://inchat-api.<you>.workers.dev URL
 
@@ -98,6 +104,10 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
   `worker/migrations/`) — creates meetings, mints participant tokens, serves
   the directory and message history from D1, and applies signature-verified
   webhook events (deduplicated). Messages are kept indefinitely.
+- **Abuse protection** — per-IP rate limits in the Worker (5 room
+  creations/hour, 30 joins/10 min, 60 message writes/min, 180 reads/min),
+  optional Turnstile check on creation, and rooms unlisted by default (only
+  `isPublic` rooms appear in the directory; join-by-code always works).
 
 ## Project layout
 

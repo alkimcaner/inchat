@@ -3,3 +3,6 @@
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_API_TOKEN=
 CLOUDFLARE_APP_ID=
+# Optional: enables the Turnstile human check on room creation.
+# Pair with VITE_TURNSTILE_SITE_KEY in the frontend .env.
+TURNSTILE_SECRET_KEY=

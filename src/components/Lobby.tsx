@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Turnstile } from "@marsidev/react-turnstile";
 import {
   createRoom,
   joinRoom,
@@ -32,8 +33,13 @@ export default function Lobby({ onTicket, busy, error }: Props) {
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const displayName = name.trim() || randomGuest();
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as
+    | string
+    | undefined;
 
   async function refreshRooms() {
     setRoomsLoading(true);
@@ -55,7 +61,14 @@ export default function Lobby({ onTicket, busy, error }: Props) {
     try {
       localStorage.setItem(NAME_KEY, name.trim());
       if (tab === "create") {
-        const ticket = await createRoom(title.trim(), displayName);
+        if (turnstileSiteKey && !turnstileToken) {
+          setLocalError("Please complete the human check first.");
+          return;
+        }
+        const ticket = await createRoom(title.trim(), displayName, {
+          isPublic,
+          turnstileToken: turnstileToken ?? undefined,
+        });
         onTicket(ticket, displayName, title.trim() || "Voice room");
       } else {
         if (!roomId.trim()) {
@@ -149,16 +162,36 @@ export default function Lobby({ onTicket, busy, error }: Props) {
           />
         </label>
       ) : (
-        <label className="field">
-          <span>Room title</span>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Late-night radio"
-            maxLength={80}
-            autoComplete="off"
-          />
-        </label>
+        <>
+          <label className="field">
+            <span>Room title</span>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Late-night radio"
+              maxLength={80}
+              autoComplete="off"
+            />
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+            />
+            List in the public directory
+          </label>
+          {turnstileSiteKey && (
+            <div className="turnstile">
+              <Turnstile
+                siteKey={turnstileSiteKey}
+                onSuccess={setTurnstileToken}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => setTurnstileToken(null)}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {err && (

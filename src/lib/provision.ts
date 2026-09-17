@@ -35,11 +35,17 @@ async function parseError(res: Response): Promise<string> {
 export async function createRoom(
   title: string,
   name: string,
+  opts?: { isPublic?: boolean; turnstileToken?: string },
 ): Promise<RoomTicket> {
   const res = await fetch(`${apiBase()}/api/rooms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, name }),
+    body: JSON.stringify({
+      title,
+      name,
+      isPublic: opts?.isPublic === true,
+      turnstileToken: opts?.turnstileToken ?? "",
+    }),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as RoomTicket;

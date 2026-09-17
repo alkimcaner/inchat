@@ -7,6 +7,7 @@ import type RTKClient from "@cloudflare/realtimekit";
 import Lobby from "./components/Lobby";
 import MeetingView from "./components/MeetingView";
 import type { RoomTicket } from "./lib/provision";
+import { voiceSupport } from "./lib/provision";
 
 export interface Session {
   ticket: RoomTicket;
@@ -22,6 +23,11 @@ export default function App() {
 
   const handleTicket = useCallback(
     async (ticket: RoomTicket, displayName: string, title: string) => {
+      const support = voiceSupport();
+      if (!support.ok) {
+        setJoinError(support.reason);
+        return;
+      }
       setStarting(true);
       setJoinError(null);
       try {

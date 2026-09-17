@@ -117,6 +117,36 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+/**
+ * Voice requires WebRTC. Some WebViews (notably Linux WebKitGTK without a
+ * WebRTC build) expose a microphone but no RTCPeerConnection — the
+ * RealtimeKit SDK then fails with `[ERR0010] Browser not supported`.
+ * Detect that up front so we can explain it instead.
+ */
+export function voiceSupport(): { ok: boolean; reason: string } {
+  if (typeof RTCPeerConnection === "undefined") {
+    return {
+      ok: false,
+      reason:
+        "This window has no WebRTC support (RTCPeerConnection is missing), " +
+        "so voice can't start here. Open the web client in Chrome, Edge, " +
+        "or Firefox instead — no install needed, same rooms.",
+    };
+  }
+  if (
+    typeof navigator === "undefined" ||
+    !navigator.mediaDevices?.getUserMedia
+  ) {
+    return {
+      ok: false,
+      reason:
+        "No microphone access in this window. Open the web client in " +
+        "Chrome, Edge, or Firefox and allow the microphone.",
+    };
+  }
+  return { ok: true, reason: "" };
+}
+
 export async function copyText(text: string): Promise<boolean> {
   try {
     if (isTauri()) {

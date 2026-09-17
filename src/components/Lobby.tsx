@@ -4,6 +4,7 @@ import {
   createRoom,
   joinRoom,
   listRooms,
+  voiceSupport,
   type RoomInfo,
   type RoomTicket,
 } from "../lib/provision";
@@ -40,6 +41,7 @@ export default function Lobby({ onTicket, busy, error }: Props) {
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as
     | string
     | undefined;
+  const support = voiceSupport();
 
   async function refreshRooms() {
     setRoomsLoading(true);
@@ -119,6 +121,11 @@ export default function Lobby({ onTicket, busy, error }: Props) {
         Pick a display name, create a room or join one with its code. Everyone
         is anonymous.
       </p>
+      {!support.ok && (
+        <div className="error" role="note">
+          {support.reason}
+        </div>
+      )}
 
       <label className="field">
         <span>Display name</span>

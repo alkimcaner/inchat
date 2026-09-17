@@ -1,0 +1,17 @@
+# InChat API worker. See worker/src/index.ts for routes.
+name = "inchat-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Preset guests join with. Must exist in your RealtimeKit app with meeting
+# type "Voice" (e.g. a `voice_participant` preset created in the dashboard).
+CLOUDFLARE_PRESET_NAME = "group_call_participant"
+REALTIMEKIT_WEBHOOK_PUBLIC_KEY_URL = "https://api.realtime.cloudflare.com/.well-known/webhooks.json"
+
+# KV namespace holding the public room directory + webhook caches.
+# Create it, then paste the id:
+#   bunx wrangler kv namespace create ROOMS
+[[kv_namespaces]]
+binding = "ROOMS"
+id = "PASTE_KV_NAMESPACE_ID"

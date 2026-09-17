@@ -5,7 +5,7 @@ import {
 } from "@cloudflare/realtimekit-react";
 import type RTKClient from "@cloudflare/realtimekit";
 import Lobby from "./components/Lobby";
-import MeetingView from "./components/MeetingView";
+import RoomView from "./components/RoomView";
 import type { RoomTicket } from "./lib/provision";
 import { voiceSupport } from "./lib/provision";
 
@@ -49,12 +49,47 @@ export default function App() {
   );
 
   // Just drops the session. Leaving itself happens exactly once in
-  // MeetingView (our button) or inside the UI Kit (its own leave/kick
-  // controls, surfaced via roomLeft) — never here, or leave() re-emits
-  // roomLeft and the cycle repeats forever.
+  // RoomView (disconnect button) or inside the meeting (kick, surfaced via
+  // roomLeft) — never here, or leave() re-emits roomLeft and the cycle
+  // repeats forever.
   const handleLeave = useCallback(() => {
     setSession(null);
   }, []);
+
+  // Hop to another room on the same client. The old leave is awaited
+  // with a timeout (teardown can stall) — and never re-triggered by
+  // handlers, or the leave -> roomLeft -> leave loop comes back.
+  const handleSwitch = useCallback(
+    async (ticket: RoomTicket, title: string) => {
+      const name = session?.displayName ?? "Guest";
+      try {
+        await Promise.race([
+          meeting?.leave(),
+          new Promise((r) => setTimeout(r, 5000)),
+        ]);
+      } catch {
+        // leaving anyway
+      }
+      setStarting(true);
+      setJoinError(null);
+      try {
+        const m = (await initMeeting({
+          authToken: ticket.auth_token,
+          defaults: { audio: true, video: false },
+        })) as RTKClient | undefined;
+        if (!m) throw new Error("Failed to initialise the voice engine.");
+        setSession({ ticket, displayName: name, title });
+      } catch (e) {
+        setJoinError(
+          e instanceof Error ? e.message : "Failed to initialise the call.",
+        );
+        setSession(null);
+      } finally {
+        setStarting(false);
+      }
+    },
+    [initMeeting, meeting, session?.displayName],
+  );
 
   return (
     <div className="app">
@@ -69,7 +104,7 @@ export default function App() {
       <main className="main">
         {session && meeting ? (
           <RealtimeKitProvider value={meeting} fallback={<p>Loading…</p>}>
-            <MeetingView session={session} onLeave={handleLeave} />
+            <RoomView session={session} onLeave={handleLeave} onSwitch={handleSwitch} />
           </RealtimeKitProvider>
         ) : (
           <Lobby

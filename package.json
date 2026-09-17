@@ -25,7 +25,6 @@
   },
   "dependencies": {
     "@cloudflare/realtimekit-react": "^2.0.2",
-    "@cloudflare/realtimekit-react-ui": "^2.0.2",
     "@marsidev/react-turnstile": "^1.6.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

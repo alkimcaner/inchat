@@ -1,7 +1,7 @@
 # InChat — anonymous voice rooms
 
 Desktop voice-chat app built with **Electron + React**, with **everything
-server-side on Cloudflare**: media via **RealtimeKit** (UI Kit), API + all
+server-side on Cloudflare**: media via **RealtimeKit** (Core SDK, custom Discord-style UI), API + all
 storage via a **Worker + D1**. Managed with **Bun**.
 
 No user accounts: everyone joins anonymously with just a display name.
@@ -11,7 +11,7 @@ nothing but their own per-guest participant `authToken`.
 ## Architecture
 
 ```
-Desktop / browser client (Electron + React + RtkMeeting UI Kit)
+Desktop / browser client (Electron + React, custom voice UI)
         │  HTTPS (/api/*)
         ▼
 Cloudflare Worker (`worker/`) ── secrets: account ID, API token, app ID
@@ -34,7 +34,7 @@ Cloudflare D1 (`inchat`)     Cloudflare RealtimeKit (voice media)
   1. A **RealtimeKit app** (dash → Realtime → Kit → Create App).
   2. An API token with **Realtime / Realtime Admin** permission.
   3. A preset with meeting type **Voice** (e.g. `voice_participant`) — voice
-     presets render the UI Kit's voice-only layout and bill as audio-only.
+     presets bill as audio-only participants.
 
 ## Setup
 
@@ -97,11 +97,13 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
 - **Lobby** (`src/components/Lobby.tsx`) — display name, public room
   directory from D1 (live counts via webhooks), join-by-code, create room,
   and an advanced "paste participant token" path that skips the backend.
-- **Room** (`src/components/MeetingView.tsx`) — prebuilt `<RtkMeeting>`
-  (`fill` mode, setup screen), initialized with
+- **Room** (`src/components/RoomView.tsx`, custom Discord-style UI on the
+  Core SDK, no UI Kit) — room sidebar with directory/create/join, voice
+  grid with speaking rings, user bar with mic/deafen/disconnect, live chat
+  (`LiveChat.tsx`) plus saved D1 history (`History.tsx`, mirrored by
+  `HistorySync`). Remote voices play through per-participant `<audio>`
+  sinks (`RemoteAudio.tsx`). Initialized with
   `defaults: { audio: true, video: false }`. Leaving returns to the lobby.
-  A **History** toggle shows saved chat from D1 (`src/components/History.tsx`);
-  `HistorySync` mirrors live UI Kit chat into D1 idempotently.
 - **Worker** (`worker/src/index.ts`, zero dependencies, schema in
   `worker/migrations/`) — creates meetings, mints participant tokens, serves
   the directory and message history from D1, and applies signature-verified
@@ -116,7 +118,7 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
 ```
 src/                  React frontend (Vite)
   App.tsx             session state: lobby ⇄ meeting
-  components/         Lobby, MeetingView (UI Kit wrapper)
+  components/         Lobby, RoomView (voice UI), LiveChat, RemoteAudio, History
   lib/provision.ts    Worker API client (VITE_API_URL or /api proxy)
 worker/               Cloudflare Worker API + KV directory + webhooks
 electron/             Electron main + preload (Chromium shell; no backend logic — that's the Worker)

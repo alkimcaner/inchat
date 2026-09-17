@@ -1,5 +1,5 @@
--- InChat schema: rooms directory, persisted chat history, webhook dedupe,
--- and a meta table for small cached values (webhook signing key).
+-- InChat schema: rooms directory (public + unlisted), persisted chat
+-- history, webhook dedupe, meta cache, and rate-limit windows.
 -- Apply with: bunx wrangler d1 migrations apply inchat [--local|--remote]
 
 CREATE TABLE IF NOT EXISTS rooms (
@@ -8,8 +8,10 @@ CREATE TABLE IF NOT EXISTS rooms (
   created_at TEXT NOT NULL,
   live INTEGER NOT NULL DEFAULT 0,
   people INTEGER NOT NULL DEFAULT 0,
+  is_public INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_rooms_public ON rooms(is_public, live, created_at);
 
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
@@ -30,3 +32,10 @@ CREATE TABLE IF NOT EXISTS meta (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  window_start INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);

@@ -109,9 +109,12 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
   the directory and message history from D1, and applies signature-verified
   webhook events (deduplicated). Messages are kept indefinitely.
 - **Abuse protection** — per-IP rate limits in the Worker (5 room
-  creations/hour, 30 joins/10 min, 60 message writes/min, 180 reads/min),
-  optional Turnstile check on creation, and rooms unlisted by default (only
-  `isPublic` rooms appear in the directory; join-by-code always works).
+  creations/hour, 30 joins/10 min, 60 message writes/min, 180 reads/min,
+  10 room deletions/hour), optional Turnstile check on creation, and rooms
+  unlisted by default (only `isPublic` rooms appear in the directory;
+  join-by-code always works). Any room can be deleted from the sidebar
+  (hover ×, with confirm) — this removes it from the directory and wipes
+  its saved chat history.
 
 ## Project layout
 

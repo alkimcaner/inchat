@@ -6,8 +6,7 @@ import {
 import type { Session } from "../App";
 import { copyText } from "../lib/provision";
 import RemoteAudio from "./RemoteAudio";
-import LiveChat from "./LiveChat";
-import { HistoryPanel, HistorySync } from "./History";
+import MergedChat, { HistorySync } from "./MergedChat";
 
 interface Props {
   session: Session;
@@ -29,7 +28,6 @@ export default function Stage({ session, onLeave }: Props) {
   const [deafened, setDeafened] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showChat, setShowChat] = useState(true);
-  const [chatTab, setChatTab] = useState<"live" | "saved">("live");
   const [copied, setCopied] = useState(false);
   const leavingRef = useRef(false);
 
@@ -224,68 +222,55 @@ export default function Stage({ session, onLeave }: Props) {
               : "Not connected"}
         </span>
         <span className="spacer" />
-        <div className="tabs mini">
           <button
-            className={showChat && chatTab === "live" ? "active" : ""}
-            onClick={() => { setShowChat(true); setChatTab("live"); }}
+            className="ghost small"
+            onClick={() => setShowChat((v) => !v)}
+            aria-pressed={showChat}
             type="button"
           >
-            Chat
-          </button>
-          <button
-            className={showChat && chatTab === "saved" ? "active" : ""}
-            onClick={() => { setShowChat(true); setChatTab("saved"); }}
-            disabled={!roomId}
-            type="button"
-          >
-            Saved
-          </button>
-          <button
-            className={!showChat ? "active" : ""}
-            onClick={() => setShowChat(false)}
-            type="button"
-          >
-            Hide
+            {showChat ? "Hide chat" : "Show chat"}
           </button>
         </div>
-      </div>
 
       {joinError && <div className="error">{joinError}</div>}
 
-      <div className={`stage-body ${showChat ? "with-chat" : ""}`}>
-        <div className="vgrid">
-          <div className={`tile ${selfAudio && !deafened ? "" : "muted"}`}>
-            <div className="avatar lg">{initialOf(me)}</div>
-            <div className="tile-name">{me} (you)</div>
-            <div className="tile-state">{selfAudio ? (deafened ? "Deafened" : "Talking") : "Muted"}</div>
-          </div>
-          {participants.map((p) => {
-            const speaking = speakerId === p.id;
-            return (
-              <div key={p.id} className={`tile ${p.audioEnabled ? "" : "muted"} ${speaking ? "speaking" : ""}`}>
-                <div className="avatar lg">{initialOf(p.name)}</div>
-                <div className="tile-name">{p.name || "Guest"}</div>
-                <div className="tile-state">
-                  {speaking ? "Speaking…" : p.audioEnabled ? "Listening" : "Muted"}
-                </div>
-                {!p.audioEnabled && <div className="tile-mic">🔇</div>}
-              </div>
-            );
-          })}
-          {joinState === "joined" && participants.length === 0 && (
-            <p className="muted">Nobody else here yet — share the code to invite people.</p>
-          )}
-        </div>
-
+      <div className="stage-body">
         {showChat && (
-          <div className="chatcol">
-            {chatTab === "live" || !roomId ? (
-              <LiveChat />
-            ) : (
-              <HistoryPanel roomId={roomId} />
-            )}
+          <div className="chatmid">
+            <MergedChat roomId={roomId} />
           </div>
         )}
+        <div className="voiceside">
+          <div className="side-section">In voice · {count}</div>
+          <div className="vlist">
+            <div className={`vrow ${selfAudio && !deafened ? "" : "muted"}`}>
+              <div className="avatar sm">{initialOf(me)}</div>
+              <div className="vrow-info">
+                <div className="tile-name">{me} (you)</div>
+                <div className="tile-state">{selfAudio ? (deafened ? "Deafened" : "Talking") : "Muted"}</div>
+              </div>
+              {!selfAudio && <div className="tile-mic">🔇</div>}
+            </div>
+            {participants.map((p) => {
+              const speaking = speakerId === p.id;
+              return (
+                <div key={p.id} className={`vrow ${p.audioEnabled ? "" : "muted"} ${speaking ? "speaking" : ""}`}>
+                  <div className="avatar sm">{initialOf(p.name)}</div>
+                  <div className="vrow-info">
+                    <div className="tile-name">{p.name || "Guest"}</div>
+                    <div className="tile-state">
+                      {speaking ? "Speaking…" : p.audioEnabled ? "Listening" : "Muted"}
+                    </div>
+                  </div>
+                  {!p.audioEnabled && <div className="tile-mic">🔇</div>}
+                </div>
+              );
+            })}
+          </div>
+          {joinState === "joined" && participants.length === 0 && (
+            <p className="muted side-empty">Nobody else here — share the code.</p>
+          )}
+        </div>
       </div>
 
       <div className="controls">

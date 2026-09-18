@@ -343,20 +343,37 @@ async function handleJoinRoom(
 }
 
 /**
- * Delete a room: removes it from the directory and wipes its stored chat
- * history. Anyone can delete any room (anonymous app) — rate-limited to
- * blunt griefing. The underlying Cloudflare meeting itself ends when empty;
- * joining the bare meeting ID afterwards recreates an unlisted directory
- * entry, by design of handleJoinRoom.
+ * Delete a room: marks the Cloudflare meeting INACTIVE (no one can join it
+ * anymore, and it stops lingering in the dashboard), removes it from the
+ * directory, and wipes its stored chat history. Anyone can delete any room
+ * (anonymous app) — rate-limited to blunt griefing. If the remote meeting
+ * is already gone, local cleanup still proceeds.
  */
 async function handleDeleteRoom(env: Env, roomId: string): Promise<Response> {
   const room = await getRoom(env, roomId);
   if (!room) return json({ error: "Room not found." }, 404);
+  let meetingClosed = false;
+  try {
+    const res = await fetch(
+      `${API_BASE}/${env.CLOUDFLARE_ACCOUNT_ID}/realtime/kit/${env.CLOUDFLARE_APP_ID}/meetings/${roomId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        },
+        body: JSON.stringify({ status: "INACTIVE" }),
+      },
+    );
+    meetingClosed = res.ok;
+  } catch {
+    meetingClosed = false;
+  }
   await env.DB.batch([
     env.DB.prepare("DELETE FROM messages WHERE room_id = ?").bind(roomId),
     env.DB.prepare("DELETE FROM rooms WHERE id = ?").bind(roomId),
   ]);
-  return json({ deleted: roomId });
+  return json({ deleted: roomId, meeting_closed: meetingClosed });
 }
 
 // --- Message history (D1) -----------------------------------------------------

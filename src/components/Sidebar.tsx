@@ -223,13 +223,9 @@ export default function Sidebar({
                     <span className="avatar xs">{initialOf(u.name)}</span>
                     <span className="member-name">{u.name}</span>
                     <span className="member-mic">
-                      {u.speaking ? (
-                        <span className="live-dot xs" />
-                      ) : u.deafened ? (
-                        <HeadphonesIcon off size={13} />
-                      ) : u.muted ? (
-                        <MicIcon off size={13} />
-                      ) : null}
+                      {u.speaking && <span className="live-dot xs" />}
+                      {u.deafened && <HeadphonesIcon off size={13} />}
+                      {u.muted && <MicIcon off size={13} />}
                     </span>
                   </li>
                 ))}

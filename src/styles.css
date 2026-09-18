@@ -88,6 +88,16 @@ button.link { background: none; border: none; color: var(--muted); cursor: point
 .side-head { font-weight: 800; font-size: 15px; padding: 4px 8px 10px; border-bottom: 1px solid #3d3e45; margin-bottom: 8px; }
 .side-section { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); padding: 10px 8px 4px; }
 .side-rooms { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.side-room-wrap { display: flex; align-items: center; gap: 2px; }
+.side-room-wrap .side-room { flex: 1; min-width: 0; }
+.room-del {
+  flex-shrink: 0; width: 24px; height: 24px; border: none; border-radius: 6px;
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1;
+  opacity: 0;
+}
+.side-room-wrap:hover .room-del, .room-del:focus-visible { opacity: 1; }
+.room-del:hover:not(:disabled) { background: var(--danger); color: white; }
+.room-del:disabled { cursor: default; }
 .side-room {
   width: 100%; display: flex; align-items: center; gap: 8px; text-align: left;
   background: transparent; border: none; border-radius: 6px; color: var(--muted);
@@ -132,6 +142,9 @@ button.link { background: none; border: none; color: var(--muted); cursor: point
 .iconbtn:hover:not(:disabled) { background: var(--panel-3); }
 .iconbtn:disabled { opacity: 0.4; cursor: default; }
 .iconbtn.danger:hover { background: var(--danger); }
+.iconbtn svg { display: block; }
+.live-dot.xs { width: 7px; height: 7px; }
+.member-mic { display: flex; align-items: center; font-size: 12px; color: var(--muted); }
 
 .stage { flex: 1; display: flex; flex-direction: column; background: var(--panel-2); min-width: 0; min-height: 0; }
 .stage-top {
@@ -162,7 +175,6 @@ button.link { background: none; border: none; color: var(--muted); cursor: point
 .member.speaking .avatar { box-shadow: 0 0 0 2px var(--ok); }
 .member.muted { opacity: 0.75; }
 .member-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.member-mic { font-size: 12px; }
 
 .chatpane { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .chatpane { padding: 12px; gap: 10px; }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import {
   createRoom,
+  deleteRoom,
   joinRoom,
   listRooms,
   type RoomInfo,
@@ -9,6 +10,7 @@ import {
 } from "../lib/provision";
 import { useRoster } from "../lib/roster";
 import { useVoiceControls } from "../lib/voice-controls";
+import { HeadphonesIcon, MicIcon, PhoneDownIcon } from "./icons";
 
 interface Props {
   displayName: string;
@@ -37,7 +39,7 @@ function UserBarButtons() {
         title={vc.micOn ? "Mute" : "Unmute"}
         type="button"
       >
-        {vc.micOn ? "🎙" : "🔇"}
+        <MicIcon off={!vc.micOn} />
       </button>
       <button
         className="iconbtn"
@@ -45,7 +47,7 @@ function UserBarButtons() {
         title={vc.deafened ? "Undeafen" : "Deafen (mute all incoming audio)"}
         type="button"
       >
-        {vc.deafened ? "🔈" : "🎧"}
+        <HeadphonesIcon off={vc.deafened} />
       </button>
       <button
         className="iconbtn danger"
@@ -53,7 +55,7 @@ function UserBarButtons() {
         title="Disconnect"
         type="button"
       >
-        📞
+        <PhoneDownIcon />
       </button>
     </div>
   );
@@ -81,6 +83,7 @@ export default function Sidebar({
     | string
     | undefined;
   const roster = useRoster();
+  const vc = useVoiceControls();
   // The active room may be unlisted (absent from the directory) — still
   // show it on top with its members.
   const visibleRooms: RoomInfo[] =
@@ -126,6 +129,24 @@ export default function Sidebar({
     }
   }
 
+  async function removeRoom(room: RoomInfo) {
+    if (
+      !window.confirm(
+        `Delete "${room.title}"? This removes it from the directory and wipes its saved chat history.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      if (room.id === activeRoomId && vc.inCall) vc.disconnect();
+      await deleteRoom(room.id);
+      await refreshRooms();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete room.");
+    }
+  }
+
   async function joinByCode() {
     if (!code.trim()) return;
     const id = code.trim();
@@ -167,18 +188,30 @@ export default function Sidebar({
       <ul className="side-rooms">
         {visibleRooms.map((r) => (
           <li key={r.id}>
-            <button
-              className={`side-room ${r.id === activeRoomId ? "active" : ""}`}
-              onClick={() => joinById(r.id, r.title)}
-              disabled={disabled}
-              type="button"
-            >
-              <span className="hash">#</span>
-              <span className="side-room-name">{r.title}</span>
-              {r.live && (
-                <span className="live-dot" title={`${r.people} in room`} />
-              )}
-            </button>
+            <div className="side-room-wrap">
+              <button
+                className={`side-room ${r.id === activeRoomId ? "active" : ""}`}
+                onClick={() => joinById(r.id, r.title)}
+                disabled={disabled}
+                type="button"
+                title={r.id}
+              >
+                <span className="hash">#</span>
+                <span className="side-room-name">{r.title}</span>
+                {r.live && (
+                  <span className="live-dot" title={`${r.people} in room`} />
+                )}
+              </button>
+              <button
+                className="room-del"
+                onClick={() => removeRoom(r)}
+                disabled={disabled}
+                title={`Delete "${r.title}"`}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
             {r.id === activeRoomId && roster.length > 0 && (
               <ul className="members">
                 {roster.map((u) => (
@@ -190,7 +223,13 @@ export default function Sidebar({
                     <span className="avatar xs">{initialOf(u.name)}</span>
                     <span className="member-name">{u.name}</span>
                     <span className="member-mic">
-                      {u.speaking ? "🟢" : u.deafened ? "🎧" : u.muted ? "🔇" : ""}
+                      {u.speaking ? (
+                        <span className="live-dot xs" />
+                      ) : u.deafened ? (
+                        <HeadphonesIcon off size={13} />
+                      ) : u.muted ? (
+                        <MicIcon off size={13} />
+                      ) : null}
                     </span>
                   </li>
                 ))}

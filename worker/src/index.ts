@@ -42,6 +42,7 @@ const LIMITS = {
   join: [30, 600],
   write: [60, 60], // persisting chat messages
   read: [180, 60], // directory + history reads
+  delete: [10, 3600], // room deletion (anyone can delete; keep it tight)
 } as const;
 
 interface Env {
@@ -341,6 +342,23 @@ async function handleJoinRoom(
   return json({ meeting_id: meetingId, auth_token: authToken });
 }
 
+/**
+ * Delete a room: removes it from the directory and wipes its stored chat
+ * history. Anyone can delete any room (anonymous app) — rate-limited to
+ * blunt griefing. The underlying Cloudflare meeting itself ends when empty;
+ * joining the bare meeting ID afterwards recreates an unlisted directory
+ * entry, by design of handleJoinRoom.
+ */
+async function handleDeleteRoom(env: Env, roomId: string): Promise<Response> {
+  const room = await getRoom(env, roomId);
+  if (!room) return json({ error: "Room not found." }, 404);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM messages WHERE room_id = ?").bind(roomId),
+    env.DB.prepare("DELETE FROM rooms WHERE id = ?").bind(roomId),
+  ]);
+  return json({ deleted: roomId });
+}
+
 // --- Message history (D1) -----------------------------------------------------
 
 async function handleListMessages(
@@ -535,6 +553,13 @@ export default {
         const roomId = decodeURIComponent(joinMatch[1]!);
         return await withLimit(env, req, "join", () =>
           handleJoinRoom(req, env, roomId),
+        );
+      }
+      const roomMatch = url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
+      if (req.method === "DELETE" && roomMatch) {
+        const roomId = decodeURIComponent(roomMatch[1]!);
+        return await withLimit(env, req, "delete", () =>
+          handleDeleteRoom(env, roomId),
         );
       }
       const msgMatch = url.pathname.match(/^\/api\/rooms\/([^/]+)\/messages$/);

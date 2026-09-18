@@ -68,6 +68,14 @@ export async function joinRoom(
   return (await res.json()) as RoomTicket;
 }
 
+/** Delete a room: drops it from the directory and wipes stored history. */
+export async function deleteRoom(roomId: string): Promise<void> {
+  const res = await fetch(`${apiBase()}/api/rooms/${encodeURIComponent(roomId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
 /** Public room directory, stored in Cloudflare D1 by the Worker. */
 export async function listRooms(): Promise<RoomInfo[]> {
   const res = await fetch(`${apiBase()}/api/rooms`);

@@ -106,6 +106,7 @@ export default function App() {
           displayName={displayName}
           onDisplayName={handleDisplayName}
           activeRoomId={session?.ticket.meeting_id ?? ""}
+          activeTitle={session?.title ?? ""}
           onJoin={handleJoin}
           busy={starting}
         />

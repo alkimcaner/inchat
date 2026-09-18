@@ -5,17 +5,13 @@ import {
 } from "@cloudflare/realtimekit-react";
 import type { Session } from "../App";
 import { copyText } from "../lib/provision";
+import { clearRoster, publishRoster } from "../lib/roster";
 import RemoteAudio from "./RemoteAudio";
 import MergedChat, { HistorySync } from "./MergedChat";
 
 interface Props {
   session: Session;
   onLeave: () => void;
-}
-
-function initialOf(name: string): string {
-  const t = name.trim();
-  return t ? t[0]!.toUpperCase() : "?";
 }
 
 /** In-call stage: channel header, voice grid, controls, live/saved chat. */
@@ -27,7 +23,6 @@ export default function Stage({ session, onLeave }: Props) {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [deafened, setDeafened] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [showChat, setShowChat] = useState(true);
   const [copied, setCopied] = useState(false);
   const leavingRef = useRef(false);
 
@@ -201,7 +196,29 @@ export default function Stage({ session, onLeave }: Props) {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  // Publish the roster for the sidebar (which lives outside the
+  // meeting provider). Clear on unmount so stale members don't linger.
   const me = selfName || session.displayName;
+  useEffect(() => {
+    publishRoster([
+      {
+        id: selfId || "self",
+        name: `${me} (you)`,
+        speaking: speakerId === selfId,
+        muted: !selfAudio,
+        isSelf: true,
+      },
+      ...participants.map((p) => ({
+        id: p.id,
+        name: p.name || "Guest",
+        speaking: speakerId === p.id,
+        muted: !p.audioEnabled,
+        isSelf: false,
+      })),
+    ]);
+    return () => clearRoster();
+  }, [participants, selfId, me, speakerId, selfAudio, meeting]);
+
   const count = participants.length + 1;
 
   return (
@@ -222,54 +239,13 @@ export default function Stage({ session, onLeave }: Props) {
               : "Not connected"}
         </span>
         <span className="spacer" />
-          <button
-            className="ghost small"
-            onClick={() => setShowChat((v) => !v)}
-            aria-pressed={showChat}
-            type="button"
-          >
-            {showChat ? "Hide chat" : "Show chat"}
-          </button>
-        </div>
+      </div>
 
       {joinError && <div className="error">{joinError}</div>}
 
       <div className="stage-body">
-        {showChat && (
-          <div className="chatmid">
-            <MergedChat roomId={roomId} />
-          </div>
-        )}
-        <div className="voiceside">
-          <div className="side-section">In voice · {count}</div>
-          <div className="vlist">
-            <div className={`vrow ${selfAudio && !deafened ? "" : "muted"}`}>
-              <div className="avatar sm">{initialOf(me)}</div>
-              <div className="vrow-info">
-                <div className="tile-name">{me} (you)</div>
-                <div className="tile-state">{selfAudio ? (deafened ? "Deafened" : "Talking") : "Muted"}</div>
-              </div>
-              {!selfAudio && <div className="tile-mic">🔇</div>}
-            </div>
-            {participants.map((p) => {
-              const speaking = speakerId === p.id;
-              return (
-                <div key={p.id} className={`vrow ${p.audioEnabled ? "" : "muted"} ${speaking ? "speaking" : ""}`}>
-                  <div className="avatar sm">{initialOf(p.name)}</div>
-                  <div className="vrow-info">
-                    <div className="tile-name">{p.name || "Guest"}</div>
-                    <div className="tile-state">
-                      {speaking ? "Speaking…" : p.audioEnabled ? "Listening" : "Muted"}
-                    </div>
-                  </div>
-                  {!p.audioEnabled && <div className="tile-mic">🔇</div>}
-                </div>
-              );
-            })}
-          </div>
-          {joinState === "joined" && participants.length === 0 && (
-            <p className="muted side-empty">Nobody else here — share the code.</p>
-          )}
+        <div className="chatmid">
+          <MergedChat roomId={roomId} />
         </div>
       </div>
 

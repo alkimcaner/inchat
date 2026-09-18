@@ -7,11 +7,13 @@ import {
   type RoomInfo,
   type RoomTicket,
 } from "../lib/provision";
+import { useRoster } from "../lib/roster";
 
 interface Props {
   displayName: string;
   onDisplayName: (name: string) => void;
   activeRoomId: string;
+  activeTitle: string;
   onJoin: (ticket: RoomTicket, title: string) => void;
   busy: boolean;
 }
@@ -26,6 +28,7 @@ export default function Sidebar({
   displayName,
   onDisplayName,
   activeRoomId,
+  activeTitle,
   onJoin,
   busy,
 }: Props) {
@@ -41,6 +44,22 @@ export default function Sidebar({
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as
     | string
     | undefined;
+  const roster = useRoster();
+  // The active room may be unlisted (absent from the directory) — still
+  // show it on top with its members.
+  const visibleRooms: RoomInfo[] =
+    activeRoomId && !rooms.some((r) => r.id === activeRoomId)
+      ? [
+          {
+            id: activeRoomId,
+            title: activeTitle || "Voice room",
+            createdAt: "",
+            live: true,
+            people: roster.length,
+          },
+          ...rooms,
+        ]
+      : rooms;
 
   useEffect(() => {
     setNameDraft(displayName);
@@ -110,7 +129,7 @@ export default function Sidebar({
 
       <div className="side-section">Voice rooms</div>
       <ul className="side-rooms">
-        {rooms.map((r) => (
+        {visibleRooms.map((r) => (
           <li key={r.id}>
             <button
               className={`side-room ${r.id === activeRoomId ? "active" : ""}`}
@@ -124,9 +143,25 @@ export default function Sidebar({
                 <span className="live-dot" title={`${r.people} in room`} />
               )}
             </button>
+            {r.id === activeRoomId && roster.length > 0 && (
+              <ul className="members">
+                {roster.map((u) => (
+                  <li
+                    key={u.id}
+                    className={`member ${u.speaking ? "speaking" : ""} ${u.muted ? "muted" : ""}`}
+                  >
+                    <span className="avatar xs">{initialOf(u.name)}</span>
+                    <span className="member-name">{u.name}</span>
+                    <span className="member-mic">
+                      {u.speaking ? "🟢" : u.muted ? "🔇" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </li>
         ))}
-        {rooms.length === 0 && (
+        {visibleRooms.length === 0 && (
           <li className="muted side-empty">No public rooms yet.</li>
         )}
       </ul>

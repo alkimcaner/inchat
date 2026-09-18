@@ -94,16 +94,16 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
 
 ## How it works
 
-- **Lobby** (`src/components/Lobby.tsx`) — display name, public room
-  directory from D1 (live counts via webhooks), join-by-code, create room,
-  and an advanced "paste participant token" path that skips the backend.
-- **Room** (`src/components/RoomView.tsx`, custom Discord-style UI on the
-  Core SDK, no UI Kit) — room sidebar with directory/create/join, voice
-  grid with speaking rings, user bar with mic/deafen/disconnect, live chat
-  (`LiveChat.tsx`) plus saved D1 history (`History.tsx`, mirrored by
-  `HistorySync`). Remote voices play through per-participant `<audio>`
+- **Client** (`src/`, single screen, no landing page) — an always-visible
+  sidebar (`Sidebar.tsx`: brand, public room directory, join-by-code,
+  create form, editable display name) plus a stage that shows the active
+  call or an empty state.
+- **Room** (`src/components/Stage.tsx`, custom Discord-style UI on the
+  Core SDK, no UI Kit) — channel header, voice grid with speaking rings,
+  bottom control bar (mic/deafen/disconnect), live chat (`LiveChat.tsx`)
+  plus saved D1 history (`History.tsx`, mirrored by `HistorySync`). Remote voices play through per-participant `<audio>`
   sinks (`RemoteAudio.tsx`). Initialized with
-  `defaults: { audio: true, video: false }`. Leaving returns to the lobby.
+  `defaults: { audio: true, video: false }`. Leaving returns to the empty stage.
 - **Worker** (`worker/src/index.ts`, zero dependencies, schema in
   `worker/migrations/`) — creates meetings, mints participant tokens, serves
   the directory and message history from D1, and applies signature-verified
@@ -117,9 +117,9 @@ Other scripts: `bun run check` (tsc), `bun run build` (web bundle only).
 
 ```
 src/                  React frontend (Vite)
-  App.tsx             session state: lobby ⇄ meeting
-  components/         Lobby, RoomView (voice UI), LiveChat, RemoteAudio, History
+  App.tsx             session state: empty stage ⇄ active call
+  components/         Sidebar, Stage, LiveChat, RemoteAudio, History
   lib/provision.ts    Worker API client (VITE_API_URL or /api proxy)
-worker/               Cloudflare Worker API + KV directory + webhooks
+worker/               Cloudflare Worker API + D1 + webhooks
 electron/             Electron main + preload (Chromium shell; no backend logic — that's the Worker)
 ```

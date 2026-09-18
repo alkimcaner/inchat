@@ -37,8 +37,6 @@ body {
 .main { flex: 1; display: flex; justify-content: center; align-items: stretch; padding: 0; }
 .main:has(.card) { align-items: flex-start; padding: 28px 16px; }
 
-.foot { padding: 10px; text-align: center; color: var(--muted); font-size: 12px; border-top: 1px solid #111214; background: var(--panel); }
-
 .card {
   background: var(--panel); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 28px; width: 100%; max-width: 480px;
@@ -90,7 +88,7 @@ button.link { background: none; border: none; color: var(--muted); cursor: point
 .advanced { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; }
 
 /* Discord-style room layout */
-.discord { display: flex; width: 100%; min-height: calc(100vh - 120px); }
+.discord { display: flex; width: 100%; min-height: calc(100vh - 48px); }
 .side {
   width: 264px; flex-shrink: 0; background: var(--panel);
   display: flex; flex-direction: column; gap: 4px; padding: 12px 10px;

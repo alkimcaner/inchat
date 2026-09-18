@@ -114,10 +114,6 @@ export default function App() {
           />
         )}
       </main>
-
-      <footer className="foot">
-        <span>Electron + React + Cloudflare RealtimeKit · voice only · no accounts</span>
-      </footer>
     </div>
   );
 }

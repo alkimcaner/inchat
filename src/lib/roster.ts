@@ -5,6 +5,7 @@ export interface RosterUser {
   name: string;
   speaking: boolean;
   muted: boolean;
+  deafened: boolean;
   isSelf: boolean;
 }
 

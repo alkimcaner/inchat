@@ -124,6 +124,14 @@ button.link { background: none; border: none; color: var(--muted); cursor: point
   overflow: hidden; text-overflow: ellipsis;
 }
 .side-user-edit:hover, .side-user-edit:focus { background: #0b0c0e; border-radius: 4px; }
+.side-user-btns { display: flex; gap: 2px; }
+.iconbtn {
+  background: transparent; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 16px; padding: 5px 7px; line-height: 1; color: var(--text);
+}
+.iconbtn:hover:not(:disabled) { background: var(--panel-3); }
+.iconbtn:disabled { opacity: 0.4; cursor: default; }
+.iconbtn.danger:hover { background: var(--danger); }
 
 .stage { flex: 1; display: flex; flex-direction: column; background: var(--panel-2); min-width: 0; min-height: 0; }
 .stage-top {
@@ -158,21 +166,6 @@ button.link { background: none; border: none; color: var(--muted); cursor: point
 
 .chatpane { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .chatpane { padding: 12px; gap: 10px; }
-
-/* Bottom control bar (in-call) */
-.controls {
-  display: flex; justify-content: center; gap: 10px; padding: 12px;
-  border-top: 1px solid #3d3e45; background: var(--panel); flex-shrink: 0;
-}
-.ctl {
-  display: flex; align-items: center; gap: 8px; padding: 10px 18px;
-  border: none; border-radius: 8px; cursor: pointer;
-  background: var(--panel-3); color: var(--text); font-weight: 600; font-size: 14px;
-}
-.ctl:hover:not(:disabled) { filter: brightness(1.15); }
-.ctl:disabled { opacity: 0.5; cursor: default; }
-.ctl.off { background: #4a4d55; }
-.ctl.hang { background: var(--danger); color: white; }
 
 /* Empty stage (no room selected) */
 .empty {

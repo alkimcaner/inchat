@@ -6,6 +6,7 @@ import {
 import type { Session } from "../App";
 import { copyText } from "../lib/provision";
 import { clearRoster, publishRoster } from "../lib/roster";
+import { clearVoiceControls, publishVoiceControls } from "../lib/voice-controls";
 import RemoteAudio from "./RemoteAudio";
 import MergedChat, { HistorySync } from "./MergedChat";
 
@@ -206,6 +207,7 @@ export default function Stage({ session, onLeave }: Props) {
         name: `${me} (you)`,
         speaking: speakerId === selfId,
         muted: !selfAudio,
+        deafened,
         isSelf: true,
       },
       ...participants.map((p) => ({
@@ -213,11 +215,30 @@ export default function Stage({ session, onLeave }: Props) {
         name: p.name || "Guest",
         speaking: speakerId === p.id,
         muted: !p.audioEnabled,
+        deafened: false,
         isSelf: false,
       })),
     ]);
     return () => clearRoster();
-  }, [participants, selfId, me, speakerId, selfAudio, meeting]);
+  }, [participants, selfId, me, speakerId, selfAudio, deafened, meeting]);
+
+  // Publish call controls for the sidebar user card (which lives outside
+  // the meeting provider).
+  useEffect(() => {
+    publishVoiceControls({
+      inCall: true,
+      micOn: selfAudio,
+      deafened,
+      canMic: joinState === "joined" && !busy,
+      toggleMic: () => {
+        void toggleMic();
+      },
+      toggleDeafen: () => setDeafened((d) => !d),
+      disconnect: () => leave(),
+    });
+    return () => clearVoiceControls();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meeting, selfAudio, deafened, busy, joinState]);
 
   const count = participants.length + 1;
 
@@ -247,29 +268,6 @@ export default function Stage({ session, onLeave }: Props) {
         <div className="chatmid">
           <MergedChat roomId={roomId} />
         </div>
-      </div>
-
-      <div className="controls">
-        <button
-          className={`ctl ${selfAudio && !deafened ? "on" : "off"}`}
-          onClick={toggleMic}
-          disabled={busy || joinState !== "joined"}
-          title={selfAudio ? "Mute" : "Unmute"}
-          type="button"
-        >
-          {selfAudio ? "🎙" : "🔇"} {selfAudio ? "Mute" : "Unmute"}
-        </button>
-        <button
-          className={`ctl ${deafened ? "off" : "on"}`}
-          onClick={() => setDeafened((d) => !d)}
-          title={deafened ? "Undeafen" : "Deafen (mute all incoming audio)"}
-          type="button"
-        >
-          {deafened ? "🔈 Undeafen" : "🎧 Deafen"}
-        </button>
-        <button className="ctl hang" onClick={leave} title="Disconnect" type="button">
-          📞 Disconnect
-        </button>
       </div>
 
       {/* Hidden sinks that actually play remote voices */}

@@ -8,6 +8,7 @@ import {
   type RoomTicket,
 } from "../lib/provision";
 import { useRoster } from "../lib/roster";
+import { useVoiceControls } from "../lib/voice-controls";
 
 interface Props {
   displayName: string;
@@ -21,6 +22,41 @@ interface Props {
 function initialOf(name: string): string {
   const t = name.trim();
   return t ? t[0]!.toUpperCase() : "?";
+}
+
+/** Mic / deafen / disconnect, bottom-left. Wired via the controls store. */
+function UserBarButtons() {
+  const vc = useVoiceControls();
+  if (!vc.inCall) return null;
+  return (
+    <div className="side-user-btns">
+      <button
+        className="iconbtn"
+        onClick={vc.toggleMic}
+        disabled={!vc.canMic}
+        title={vc.micOn ? "Mute" : "Unmute"}
+        type="button"
+      >
+        {vc.micOn ? "🎙" : "🔇"}
+      </button>
+      <button
+        className="iconbtn"
+        onClick={vc.toggleDeafen}
+        title={vc.deafened ? "Undeafen" : "Deafen (mute all incoming audio)"}
+        type="button"
+      >
+        {vc.deafened ? "🔈" : "🎧"}
+      </button>
+      <button
+        className="iconbtn danger"
+        onClick={vc.disconnect}
+        title="Disconnect"
+        type="button"
+      >
+        📞
+      </button>
+    </div>
+  );
 }
 
 /** Always-visible sidebar: brand, room directory, join/create, user card. */
@@ -149,11 +185,12 @@ export default function Sidebar({
                   <li
                     key={u.id}
                     className={`member ${u.speaking ? "speaking" : ""} ${u.muted ? "muted" : ""}`}
+                    title={u.deafened ? "Deafened" : u.speaking ? "Speaking" : u.muted ? "Muted" : u.name}
                   >
                     <span className="avatar xs">{initialOf(u.name)}</span>
                     <span className="member-name">{u.name}</span>
                     <span className="member-mic">
-                      {u.speaking ? "🟢" : u.muted ? "🔇" : ""}
+                      {u.speaking ? "🟢" : u.deafened ? "🎧" : u.muted ? "🔇" : ""}
                     </span>
                   </li>
                 ))}
@@ -232,6 +269,7 @@ export default function Sidebar({
           autoComplete="off"
           title="Display name (applies to your next join)"
         />
+        <UserBarButtons />
       </div>
     </aside>
   );
